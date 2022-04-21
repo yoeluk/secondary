@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: secondary
+  name: coredns-config
+data:
+  Corefile: |
+    . {
+        health :8080
+        secondary
+        debug
+        log
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: secondary
+  name: secondary
+spec:
+  selector:
+    matchLabels:
+      app: secondary
+  replicas: 1
+  template:
+    metadata:
+      namespace: secondary
+      labels:
+        app: secondary
+    spec:
+      containers:
+        - name: secondary
+          image:  835841513702.dkr.ecr.us-west-2.amazonaws.com/pathfinder/lab/coredns:redis
+          args: ["--conf=/etc/config/Corefile"]
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 53
+              protocol: TCP
+              name: dns-tcp
+            - containerPort: 53
+              protocol: UDP
+              name: dns-udp
+          volumeMounts:
+            - name: coredns-config
+              mountPath: /etc/config
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1"
+      volumes:
+        - name: coredns-config
+          configMap:
+            name: coredns-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: secondary
+  name: secondary
+  labels:
+    app: secondary
+spec:
+  ports:
+    - port: 53
+      name: dns-tcp
+      targetPort: dns-tcp
+      protocol: TCP
+    - port: 53
+      name: dns-udp
+      targetPort: dns-udp
+      protocol: UDP
+  selector:
+    app: secondary
+  clusterIP: 10.106.183.105

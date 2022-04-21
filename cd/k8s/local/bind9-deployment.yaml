@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: secondary
+  name: bind9-config
+data:
+  named.conf: |-
+    options {
+      directory "/var/cache/bind";
+      listen-on { 127.0.0.1; };
+      listen-on-v6 { ::1; };
+      allow-recursion { none; };
+      allow-update { none; };
+      allow-transfer { any; };
+      notify explicit;
+      also-notify { 10.106.183.105; };
+    };
+    
+    server ::/0 {
+      bogus yes;
+    };
+    
+    zone "example.com." {
+      type primary;
+      file "/var/lib/bind/db.example.com";
+    };
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: secondary
+  name: db-config
+data:
+  db.example.com: |
+    $TTL 3600
+    $ORIGIN example.com.
+    @   3600 IN	SOA sns.dns.icann.org. noc.dns.icann.org. 2017042745 7200 3600 1209600 3600
+        3600 IN NS a.iana-servers.net.
+        3600 IN NS b.iana-servers.net.
+
+    www   IN  A     127.0.0.1
+          IN  AAAA  ::1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: secondary
+  name: bind9
+spec:
+  selector:
+    matchLabels:
+      app: bind9
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: bind9
+    spec:
+      containers:
+        - name: bind9
+          image: internetsystemsconsortium/bind9:9.18
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 53
+              protocol: TCP
+              name: dns-tcp
+            - containerPort: 53
+              protocol: UDP
+              name: dns-udp
+          volumeMounts:
+            - name: bind9-config
+              mountPath: /etc/bind
+            - name: db-config
+              mountPath: /var/lib/bind
+            - name: bind9-cache
+              mountPath: /var/cache/bind
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1"
+      volumes:
+        - name: bind9-config
+          configMap:
+            name: bind9-config
+        - name: db-config
+          configMap:
+            name: db-config
+        - name: bind9-cache
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: secondary
+  name: bind9
+  labels:
+    app: bind9
+spec:
+  ports:
+    - port: 53
+      name: dns-tcp
+      targetPort: dns-tcp
+      protocol: TCP
+    - port: 53
+      name: dns-udp
+      targetPort: dns-udp
+      protocol: UDP
+  selector:
+    app: bind9
+  clusterIP: 10.106.183.101
