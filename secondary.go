@@ -100,7 +100,7 @@ func (s *Secondary) In(m *dns.Msg, primary string) (records []dns.RR) {
 
 	c, err := t.In(m, primary)
 	if err != nil {
-		log.Debugf("found an error during t.In for server %s, with error message %s", primary, err.Error())
+		log.Error("found an error during t.In for server %s, with error message %s", primary, err.Error())
 		return
 	}
 
