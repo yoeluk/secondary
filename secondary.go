@@ -18,7 +18,7 @@ func (s *Secondary) Name() string {
 
 type TransferPersistence interface {
 	Name() string
-	Persist(zone string, records []*dns.RR) error
+	Persist(zone string, records []dns.RR) error
 	RetrieveSOA(zoneName string) *dns.SOA
 }
 
@@ -47,6 +47,7 @@ func (s *Secondary) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	// write the reply to NOTIFY
 	m := new(dns.Msg)
 	m.SetReply(r)
+	m.Authoritative = true
 	_ = w.WriteMsg(m)
 
 	// retrieve existing SOA record for zone
@@ -59,20 +60,17 @@ func (s *Secondary) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	}
 
 	// determine if the zone should be transfer
-	var shouldTransfer bool
-	if knownSOA != nil {
-		should, err := s.ShouldTransfer(state.QName(), knownSOA)
-		shouldTransfer = should && err != nil
-	}
+	should, primary, err := s.ShouldTransfer(state.QName(), knownSOA)
+	shouldTransfer := should && len(primary) > 0 && err != nil
 
 	// retrieved changed records
-	var records []*dns.RR
+	var records []dns.RR
 	if shouldTransfer {
-		records = s.TransferIn(state.QName(), knownSOA)
+		records = s.TransferIn(state.QName(), knownSOA, primary)
 	}
 
 	// persist retrieved records from primary
-	if records != nil {
+	if records != nil && len(records) > 0 {
 		for _, p := range s.Persistors {
 			err := p.Persist(state.QName(), records)
 			if err != nil {
@@ -84,7 +82,7 @@ func (s *Secondary) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	return dns.RcodeSuccess, nil
 }
 
-func (s *Secondary) TransferIn(zoneName string, knownSOA *dns.SOA) (records []*dns.RR) {
+func (s *Secondary) TransferIn(zoneName string, knownSOA *dns.SOA, primary string) (records []dns.RR) {
 	m := new(Msg)
 
 	if knownSOA != nil {
@@ -93,38 +91,37 @@ func (s *Secondary) TransferIn(zoneName string, knownSOA *dns.SOA) (records []*d
 		m.SetAxfr(zoneName)
 	}
 
+	records = s.In(m, primary)
+	return
+}
+
+func (s *Secondary) In(m *Msg, primary string) (records []dns.RR) {
 	t := new(dns.Transfer)
 
-	for _, p := range s.Primaries {
-		c, err := t.In(m.Msg, p)
-		if err != nil {
-			return
-		}
+	c, err := t.In(m.Msg, primary)
+	if err != nil {
+		log.Debugf("found an error during t.In for server %s, with error message %s", primary, err.Error())
+		return
+	}
 
-		for env := range c {
-			if env.Error != nil {
-				continue
-			}
-			for _, rr := range env.RR {
-				records = append(records, &rr)
-			}
+	for env := range c {
+		if env.Error != nil {
+			continue
 		}
-
-		// if we got records from this primary we don't need to lookup in a different primary
-		// this logic assumes that there is a one-to-one relationship between hostedZones and primaries
-		if len(records) > 0 {
-			break
+		for _, rr := range env.RR {
+			records = append(records, rr)
 		}
 	}
 	return
 }
 
-func (s *Secondary) ShouldTransfer(zoneName string, knownSOA *dns.SOA) (bool, error) {
+func (s *Secondary) ShouldTransfer(zoneName string, knownSOA *dns.SOA) (bool, string, error) {
 	c := new(dns.Client)
-	c.Net = "tcp" // do this query over TCP to minimize spoofing
 	m := new(dns.Msg)
 	m.SetQuestion(zoneName, dns.TypeSOA)
+	m.RecursionDesired = true
 
+	var primary string
 	var Err error
 	serial := -1
 
@@ -138,17 +135,18 @@ func (s *Secondary) ShouldTransfer(zoneName string, knownSOA *dns.SOA) (bool, er
 		for _, a := range ret.Answer {
 			if a.Header().Rrtype == dns.TypeSOA {
 				serial = int(a.(*dns.SOA).Serial)
+				primary = p
 				break
 			}
 		}
 	}
 	if serial == -1 {
-		return false, Err
+		return false, primary, Err
 	}
 	if knownSOA == nil {
-		return true, Err
+		return true, primary, Err
 	}
-	return less(knownSOA.Serial, uint32(serial)), Err
+	return less(knownSOA.Serial, uint32(serial)), primary, Err
 }
 
 type Msg struct {
