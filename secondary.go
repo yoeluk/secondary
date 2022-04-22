@@ -83,10 +83,10 @@ func (s *Secondary) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 }
 
 func (s *Secondary) TransferIn(zoneName string, knownSOA *dns.SOA, primary string) (records []dns.RR) {
-	m := new(Msg)
+	m := new(dns.Msg)
 
 	if knownSOA != nil {
-		m.SetIxfr2(zoneName, knownSOA)
+		m.SetIxfr(zoneName, knownSOA.Serial, knownSOA.Ns, knownSOA.Mbox)
 	} else {
 		m.SetAxfr(zoneName)
 	}
@@ -95,10 +95,10 @@ func (s *Secondary) TransferIn(zoneName string, knownSOA *dns.SOA, primary strin
 	return
 }
 
-func (s *Secondary) In(m *Msg, primary string) (records []dns.RR) {
+func (s *Secondary) In(m *dns.Msg, primary string) (records []dns.RR) {
 	t := new(dns.Transfer)
 
-	c, err := t.In(m.Msg, primary)
+	c, err := t.In(m, primary)
 	if err != nil {
 		log.Debugf("found an error during t.In for server %s, with error message %s", primary, err.Error())
 		return
@@ -147,14 +147,6 @@ func (s *Secondary) ShouldTransfer(zoneName string, knownSOA *dns.SOA) (bool, st
 		return true, primary, Err
 	}
 	return less(knownSOA.Serial, uint32(serial)), primary, Err
-}
-
-type Msg struct {
-	*dns.Msg
-}
-
-func (m *Msg) SetIxfr2(zoneName string, soa *dns.SOA) {
-	m.SetIxfr(zoneName, soa.Serial, soa.Ns, soa.Mbox)
 }
 
 // less returns true of a is smaller than b when taking RFC 1982 serial arithmetic into account.
