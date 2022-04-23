@@ -69,7 +69,8 @@ func (s *Secondary) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 
 	// determine if the zone should be transfer
 	should, primary, err := s.ShouldTransfer(state.QName(), knownSOA)
-	shouldTransfer := should && len(primary) > 0 && err != nil
+	log.Debugf("ShouldTransfer returned that it should? %t", should)
+	shouldTransfer := should && len(primary) > 0 && err == nil
 	if err != nil {
 		log.Errorf("the zone %s couldn't be found among the primaries", state.QName())
 	}
@@ -77,6 +78,7 @@ func (s *Secondary) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	// retrieved changed records
 	var records []dns.RR
 	if shouldTransfer {
+		log.Debugf("starting the transfering of zone %s", state.QName())
 		records = s.TransferIn(state.QName(), knownSOA, primary)
 	}
 
@@ -99,6 +101,7 @@ func (s *Secondary) TransferIn(zoneName string, knownSOA *dns.SOA, primary strin
 	if knownSOA != nil {
 		m.SetIxfr(zoneName, knownSOA.Serial, knownSOA.Ns, knownSOA.Mbox)
 	} else {
+		log.Debugf("the zone %s isn't known in the backend, sending AXFR request.", zoneName)
 		m.SetAxfr(zoneName)
 	}
 
@@ -154,7 +157,7 @@ func (s *Secondary) ShouldTransfer(zoneName string, knownSOA *dns.SOA) (bool, st
 		for _, a := range ret.Answer {
 			if a.Header().Rrtype == dns.TypeSOA {
 				serial = int(a.(*dns.SOA).Serial)
-				log.Debugf("found primary with zone %s", zoneName)
+				log.Debugf("found primary with zone %s with serial %v", zoneName, serial)
 				primary = p
 				break
 			}

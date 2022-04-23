@@ -18,7 +18,7 @@ data:
           ttl 300
         }
         secondary {
-          primary bind9:53
+          primary 172.17.0.6:53
         }
         debug
         log
