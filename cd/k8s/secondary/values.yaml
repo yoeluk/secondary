@@ -1,0 +1,8 @@
+image: pathfinder-dns-mock:latest
+dns_port: "30953"
+health_port: "8080"
+namespace: redis
+redis_password: "8IWjn54kY4"
+replicas: 1
+dns_service: alternative-dns-mock
+service_type: ClusterIP

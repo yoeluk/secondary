@@ -4,6 +4,7 @@ import (
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	"strings"
 )
 
 func init() {
@@ -14,7 +15,10 @@ func init() {
 }
 
 func setup(c *caddy.Controller) error {
-	s := New()
+	s, err := parseConfig(c)
+	if err != nil {
+		return err
+	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		s.Next = next
@@ -35,4 +39,19 @@ func setup(c *caddy.Controller) error {
 	})
 
 	return nil
+}
+
+func parseConfig(c *caddy.Controller) (s *Secondary, err error) {
+	s = New()
+	for c.Next() {
+		if c.NextBlock() {
+			if val := c.Val(); val == "primary" {
+				if !c.NextArg() {
+					return s, c.ArgErr()
+				}
+				s.Primaries = strings.Split(strings.Trim(c.Val(), " "), " ")
+			}
+		}
+	}
+	return
 }

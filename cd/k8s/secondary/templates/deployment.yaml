@@ -7,7 +7,19 @@ data:
   Corefile: |
     . {
         health :8080
-        secondary
+        redis {
+          address redis-master.{{ .Values.namespace }}.svc.cluster.local:6379
+          password {{ .Values.redis_password }}
+          prefix {{ .Values.zonespace | default "__CUST1:" | quote }}
+          referral_prefix referral:
+          root_host alternative-dns.bluecat.io
+          connect_timeout 2000
+          read_timeout 2000
+          ttl 300
+        }
+        secondary {
+          primary 10.106.183.101:53
+        }
         debug
         log
     }
