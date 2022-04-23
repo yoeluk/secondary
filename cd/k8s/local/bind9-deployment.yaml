@@ -109,6 +109,7 @@ metadata:
   labels:
     app: bind9
 spec:
+  type: ClusterIP
   ports:
     - port: 53
       name: dns-tcp
@@ -120,4 +121,4 @@ spec:
       protocol: UDP
   selector:
     app: bind9
-  clusterIP: 10.106.183.101
+  clusterIP: None

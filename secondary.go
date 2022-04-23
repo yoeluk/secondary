@@ -154,7 +154,7 @@ func (s *Secondary) ShouldTransfer(zoneName string, knownSOA *dns.SOA) (bool, st
 		for _, a := range ret.Answer {
 			if a.Header().Rrtype == dns.TypeSOA {
 				serial = int(a.(*dns.SOA).Serial)
-				log.Debugf("found primary with zone %", zoneName)
+				log.Debugf("found primary with zone %s", zoneName)
 				primary = p
 				break
 			}
