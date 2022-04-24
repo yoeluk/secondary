@@ -12,7 +12,7 @@ data:
       allow-update { any; };
       allow-transfer { any; };
       notify explicit;
-      also-notify { 10.106.183.105; };
+      also-notify { 10.106.183.110; };
     };
     
     server ::/0 {
@@ -28,6 +28,9 @@ data:
       channel querylog {
         file "/var/log/querylog";
         severity debug 3;
+      };
+      category queries {
+        querylog;
       };
     };
 ---
@@ -121,4 +124,4 @@ spec:
       protocol: UDP
   selector:
     app: bind9
-  clusterIP: None
+  clusterIP: 10.106.183.101

@@ -10,7 +10,10 @@ import (
 	"time"
 )
 
-const name = "secondary"
+const (
+	dnsTimeout = 3 * time.Second
+	name       = "secondary"
+)
 
 var log = clog.NewWithPlugin("secondary")
 
@@ -111,6 +114,8 @@ func (s *Secondary) TransferIn(zoneName string, knownSOA *dns.SOA, primary strin
 
 func (s *Secondary) In(m *dns.Msg, primary string) (records []dns.RR) {
 	t := new(dns.Transfer)
+	t.DialTimeout = dnsTimeout
+	t.ReadTimeout = t.DialTimeout
 
 	c, err := t.In(m, primary)
 	if err != nil {
@@ -131,11 +136,15 @@ func (s *Secondary) In(m *dns.Msg, primary string) (records []dns.RR) {
 
 func (s *Secondary) ShouldTransfer(zoneName string, knownSOA *dns.SOA) (bool, string, error) {
 	c := new(dns.Client)
-	c.Timeout = 3 * time.Second
+	c.Net = "tcp"
+	c.Timeout = dnsTimeout
 
 	m := new(dns.Msg)
+	m.Id = dns.Id()
 	m.SetQuestion(zoneName, dns.TypeSOA)
 	m.RecursionDesired = true
+	m.Authoritative = true
+	m.SetEdns0(4096, true)
 
 	var primary string
 	var Err error
@@ -147,7 +156,7 @@ func (s *Secondary) ShouldTransfer(zoneName string, knownSOA *dns.SOA) (bool, st
 		if err != nil || ret.Rcode != dns.RcodeSuccess {
 			Err = err
 			if err != nil {
-				log.Errorf("there was an error contacting master %s: %s", p, err.Error())
+				log.Errorf("there was an error contacting primary %s: %s", p, err.Error())
 			}
 			if ret == nil {
 				log.Errorf("the response from primary %s was nil for zone %s", p, zoneName)

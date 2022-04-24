@@ -2,46 +2,38 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   namespace: secondary
-  name: coredns-config
+  name: coredns-proxy-config
 data:
   Corefile: |
-    . {
-        health :8080
-        secondary {
-          primary 172.17.0.13:3053
-        }
-        redis {
-          address redis-master.{{ .Values.namespace }}.svc.cluster.local:6379
-          password {{ .Values.redis_password }}
-          prefix {{ .Values.zonespace | default "__CUST1:" | quote }}
-          referral_prefix referral:
-          root_host alternative-dns.bluecat.io
-          connect_timeout 2000
-          read_timeout 2000
-          ttl 300
-        }
-        debug
-        log
+    .:53 {
+      forward . 10.106.183.105:53
+      debug
+      log
+    }
+    .:3053 {
+      forward . 172.17.0.10:53
+      debug
+      log
     }
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: secondary
-  name: secondary
+  name: proxy
 spec:
   selector:
     matchLabels:
-      app: secondary
+      app: proxy
   replicas: 1
   template:
     metadata:
       namespace: secondary
       labels:
-        app: secondary
+        app: proxy
     spec:
       containers:
-        - name: secondary
+        - name: proxy
           image:  835841513702.dkr.ecr.us-west-2.amazonaws.com/pathfinder/lab/coredns:redis
           args: ["--conf=/etc/config/Corefile"]
           imagePullPolicy: IfNotPresent
@@ -65,15 +57,15 @@ spec:
       volumes:
         - name: coredns-config
           configMap:
-            name: coredns-config
+            name: coredns-proxy-config
 ---
 apiVersion: v1
 kind: Service
 metadata:
   namespace: secondary
-  name: secondary
+  name: proxy
   labels:
-    app: secondary
+    app: proxy
 spec:
   ports:
     - port: 53
@@ -85,5 +77,5 @@ spec:
       targetPort: dns-udp
       protocol: UDP
   selector:
-    app: secondary
-  clusterIP: 10.106.183.105
+    app: proxy
+  clusterIP: 10.106.183.110
