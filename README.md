@@ -3,9 +3,9 @@
 This CoreDNS plugin extends an authoritative DNS plugin to support zone transfer and act as secondary. The design of 
 this plugin has in mind resolving a few specific problems. 
 
-* For example, when this secondary plugin gets the NOTIFY message it doesn't assume that the master is 
+* For example, when this secondary plugin gets the NOTIFY message it doesn't assume that the primary is 
 at the `sourceIp` of the message, instead it is configured with one or more known primaries and the NOTIFY message 
-triggers the search for the changed zone among its known primaries servers. This allow this extension to work even 
+triggers the search for the changed zone among its known primaries servers. This allow the plugin to work even 
   when the server is behind a DNS forwarder, NLB or VPC Endpoint where the `sourceIp` might not be the 
   client/primary ip address. 
 * Since this plugin is meant to extend an authoritative plugin it doesn't itself persist the zone but instead 
