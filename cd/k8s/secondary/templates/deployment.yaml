@@ -5,24 +5,24 @@ metadata:
   name: coredns-config
 data:
   Corefile: |
-. {
-    health :8080
-    secondary {
-      primary 10.106.183.110:3053
+    . {
+        health :8080
+        secondary {
+          primary proxy.secondary.svc.cluster.local:3053
+        }
+        redis {
+          address redis-master.{{ .Values.namespace }}.svc.cluster.local:6379
+          password {{ .Values.redis_password }}
+          prefix {{ .Values.zonespace | default "__CUST1:" | quote }}
+          referral_prefix referral:
+          root_host alternative-dns.bluecat.io
+          connect_timeout 2000
+          read_timeout 2000
+          ttl 300
+        }
+        debug
+        log
     }
-    redis {
-      address redis-master.{{ .Values.namespace }}.svc.cluster.local:6379
-      password {{ .Values.redis_password }}
-      prefix {{ .Values.zonespace | default "__CUST1:" | quote }}
-      referral_prefix referral:
-      root_host alternative-dns.bluecat.io
-      connect_timeout 2000
-      read_timeout 2000
-      ttl 300
-    }
-    debug
-    log
-}
 ---
 apiVersion: apps/v1
 kind: Deployment
