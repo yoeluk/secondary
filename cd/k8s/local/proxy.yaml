@@ -11,7 +11,7 @@ data:
       log
     }
     .:3053 {
-      forward . 172.17.0.10:53
+      forward . 10.106.183.101:53
       debug
       log
     }
@@ -44,6 +44,9 @@ spec:
             - containerPort: 53
               protocol: UDP
               name: dns-udp
+            - containerPort: 3053
+              protocol: TCP
+              name: dns-tcp-tr
           volumeMounts:
             - name: coredns-config
               mountPath: /etc/config
@@ -76,6 +79,10 @@ spec:
       name: dns-udp
       targetPort: dns-udp
       protocol: UDP
+    - port: 3053
+      name: dns-tcp-tr
+      targetPort: dns-tcp-tr
+      protocol: TCP
   selector:
     app: proxy
   clusterIP: 10.106.183.110
