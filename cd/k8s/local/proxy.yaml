@@ -47,6 +47,9 @@ spec:
             - containerPort: 3053
               protocol: TCP
               name: dns-tcp-tr
+            - containerPort: 3053
+              protocol: UDP
+              name: dns-udp-tr
           volumeMounts:
             - name: coredns-config
               mountPath: /etc/config
@@ -83,6 +86,10 @@ spec:
       name: dns-tcp-tr
       targetPort: dns-tcp-tr
       protocol: TCP
+    - port: 3053
+      name: dns-udp-tr
+      targetPort: dns-udp-tr
+      protocol: UDP
   selector:
     app: proxy
   clusterIP: 10.106.183.110

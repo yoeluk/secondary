@@ -136,7 +136,6 @@ func (s *Secondary) In(m *dns.Msg, primary string) (records []dns.RR) {
 
 func (s *Secondary) ShouldTransfer(zoneName string, knownSOA *dns.SOA) (bool, string, error) {
 	c := new(dns.Client)
-	c.Net = "tcp"
 	c.Timeout = dnsTimeout
 
 	m := new(dns.Msg)
